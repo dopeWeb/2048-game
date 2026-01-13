@@ -1,66 +1,179 @@
 """
-Drawing an example happy face
+Array Backed Grid Shown By Sprites
+
+Show how to use a two-dimensional list/array to back the display of a
+grid on-screen.
+
+This version syncs the grid to the sprite list in one go using resync_grid_with_sprites.
+This is faster than rebuilding a shape list every time the grid changes,
+but we are still inspecting every single cell of the grid when it updates.
+There are faster ways, but this works for smaller grid sizes.
 
 If Python and Arcade are installed, this example can be run from the command line with:
-python -m arcade.examples.happy_face
+python -m arcade.examples.array_backed_grid_sprites_1
 """
-
 import arcade
 
+# Set how many rows and columns we will have
+ROW_COUNT = 4
+COLUMN_COUNT = 4
 
+# This sets the WIDTH and HEIGHT of each grid location
+WIDTH = 80
+HEIGHT = 80
+
+# This sets the margin between each cell
+# and on the edges of the screen.
+MARGIN = 8
+
+# Do the math to figure out our screen dimensions
+WINDOW_WIDTH = (WIDTH + MARGIN) * COLUMN_COUNT + MARGIN
+WINDOW_HEIGHT = (HEIGHT + MARGIN) * ROW_COUNT + MARGIN
+WINDOW_TITLE = "2048 game"
+
+
+BOARD_BG = (187, 173, 160)   # #BBADA0
+EMPTY_BG = (205, 193, 180)   # #CDC1B4
+TEXT_DARK = (119, 110, 101)  # #776E65
+TEXT_LIGHT = (249, 246, 242) # #F9F6F2
+
+TILE_BG = {
+    2:    (238, 228, 218),   # #EEE4DA
+    4:    (237, 224, 200),   # #EDE0C8
+    8:    (242, 177, 121),   # #F2B179
+    16:   (245, 149,  99),   # #F59563
+    32:   (246, 124,  95),   # #F67C5F
+    64:   (246,  94,  59),   # #F65E3B
+    128:  (237, 207, 114),   # #EDCF72
+    256:  (237, 204,  97),   # #EDCC61
+    512:  (237, 200,  80),   # #EDC850
+    1024: (237, 197,  63),   # #EDC53F
+    2048: (237, 194,  46),   # #EDC22E
+}
+
+
+class GameView(arcade.View):
+    """
+    Main application class.
+    """
+
+    def __init__(self):
+        """
+        Set up the application.
+        """
+        super().__init__()
+
+        # Create a 2 dimensional array. A two dimensional
+        # array is simply a list of lists.
+        # This array can be altered later to contain 0 or 1
+        # to show a white or green cell.
+        #
+        # A 4 x 4 grid would look like this
+        #
+        # grid = [
+        #     [0, 0, 0, 0],
+        #     [0, 0, 0, 0],
+        #     [0, 0, 0, 0],
+        #     [0, 0, 0, 0],
+        # ]
+        # We can quickly build a grid with python list comprehension
+        # self.grid = [[0] * COLUMN_COUNT for _ in range(ROW_COUNT)]
+        # Making the grid with loops:
+        self.grid = []
+        for row in range(ROW_COUNT):
+            # Add an empty array that will hold each cell
+            # in this row
+            self.grid.append([])
+            for column in range(COLUMN_COUNT):
+                self.grid[row].append(0)  # Append a cell
+
+        # Set the window's background color
+        self.background_color = BOARD_BG
+        # Create a spritelist for batch drawing all the grid sprites
+        self.grid_sprite_list = arcade.SpriteList()
+
+        # Create a list of solid-color sprites to represent each grid location
+        for row in range(ROW_COUNT):
+            for column in range(COLUMN_COUNT):
+                x = column * (WIDTH + MARGIN) + (WIDTH / 2 + MARGIN)
+                y = row * (HEIGHT + MARGIN) + (HEIGHT / 2 + MARGIN)
+                sprite = arcade.SpriteSolidColor(WIDTH, HEIGHT, color=arcade.color.WHITE)
+                sprite.center_x = x
+                sprite.center_y = y
+                self.grid_sprite_list.append(sprite)
+
+    def resync_grid_with_sprites(self):
+        """
+        Update the color of all the sprites to match
+        the color/stats in the grid.
+
+        We look at the values in each cell.
+        If the cell contains 0 we assign a white color.
+        If the cell contains 1 we assign a green color.
+        """
+        for row in range(ROW_COUNT):
+            for column in range(COLUMN_COUNT):
+                # We need to convert our two dimensional grid to our
+                # one-dimensional sprite list. For example a 10x10 grid might have
+                # row 2, column 8 mapped to location 28. (Zero-basing throws things
+                # off, but you get the idea.)
+                # ALTERNATIVELY you could set self.grid_sprite_list[pos].texture
+                # to different textures to change the image instead of the color.
+                pos = row * COLUMN_COUNT + column
+                if self.grid[row][column] == 0:
+                    self.grid_sprite_list[pos].color = arcade.color.WHITE
+                else:
+                    self.grid_sprite_list[pos].color = arcade.color.PINK
+
+    def on_draw(self):
+        """
+        Render the screen.
+        """
+        # We should always start by clearing the window pixels
+        self.clear()
+
+        # Batch draw all the sprites
+        self.grid_sprite_list.draw()
+
+    def on_mouse_press(self, x, y, button, modifiers):
+        """
+        Called when the user presses a mouse button.
+        """
+
+        # Convert the clicked mouse position into grid coordinates
+        column = int(x // (WIDTH + MARGIN))
+        row = int(y // (HEIGHT + MARGIN))
+
+        print(f"Click coordinates: ({x}, {y}). Grid coordinates: ({row}, {column})")
+
+        # Make sure we are on-grid. It is possible to click in the upper right
+        # corner in the margin and go to a grid location that doesn't exist
+        if row >= ROW_COUNT or column >= COLUMN_COUNT:
+            # Simply return from this method since nothing needs updating
+            return
+
+        # Flip the location between 1 and 0.
+        if self.grid[row][column] == 0:
+            self.grid[row][column] = 1
+        else:
+            self.grid[row][column] = 0
+
+        # Update the sprite colors to match the new grid
+        self.resync_grid_with_sprites()
 
 
 def main():
+    """ Main function """
+    # Create a window class. This is what actually shows up on screen
+    window = arcade.Window(WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE)
 
-    # Set constants for the screen size
-    WINDOW_WIDTH = 600
-    WINDOW_HEIGHT = 600
-    WINDOW_TITLE = "Happy Face Example"
+    # Create the GameView
+    game = GameView()
 
-    # Open the window. Set the window title and dimensions
-    arcade.open_window(WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE, resizable=True)
+    # Show GameView on screen
+    window.show_view(game)
 
-    # Set the background color
-    arcade.set_background_color(arcade.color.WHITE)
-
-    # Clear screen and start render process
-    arcade.start_render()
-
-    # --- Drawing Commands Will Go Here ---
-
-    # Draw the face
-    x = 300
-    y = 300
-    radius = 200
-    arcade.draw_circle_filled(x, y, radius, arcade.color.YELLOW)
-
-    # Draw the right eye
-    x = 370
-    y = 350
-    radius = 20
-    arcade.draw_circle_filled(x, y, radius, arcade.color.BLACK)
-
-    # Draw the left eye
-    x = 230
-    y = 350
-    radius = 20
-    arcade.draw_circle_filled(x, y, radius, arcade.color.BLACK)
-
-    # Draw the smile
-    x = 300
-    y = 280
-    width = 240
-    height = 200
-    start_angle = 190
-    end_angle = 350
-    line_width = 20
-    arcade.draw_arc_outline(x, y, width, height, arcade.color.BLACK,
-                            start_angle, end_angle, line_width)
-
-    # Finish drawing and display the result
-    arcade.finish_render()
-
-    # Keep the window open until the user hits the 'close' button
+    # Start the arcade game loop
     arcade.run()
 
 
